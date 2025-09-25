@@ -12,7 +12,7 @@ const Home = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await axios.get("https://scarlit-backend.onrender.com/api/products/all");
+        const response = await axios.get("https://backend-brown-sigma.vercel.app/api/products/all");
         if (response.data.success) {
           setProducts(response.data.data);
         }
