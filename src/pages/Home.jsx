@@ -1,34 +1,83 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { createOrder } from "../api/Orderapi";
 import { toast } from "react-toastify";
-
+import axios from "axios";
 
 const Home = () => {
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Fetch products on component mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get("https://scarlit-backend.onrender.com/api/products/all");
+        if (response.data.success) {
+          setProducts(response.data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        toast.error("Failed to load products");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+    fetchProducts();
+  }, []);
 
-  // Grab form data
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData.entries());
+  // Handle product selection
+  const handleProductChange = (e) => {
+    const productId = e.target.value;
+    const product = products.find(p => p._id === productId);
+    setSelectedProduct(product);
+  };
 
-  try {
-    const res = await createOrder(data);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-    if (res.data.success) {
-      toast.success("✅ Order submitted successfully!");
-      e.target.reset(); // clear form
-    } else {
-      toast.error("❌ Failed: " + res.data.message);
+    // Grab form data
+    const formData = new FormData(e.target);
+    const rawData = Object.fromEntries(formData.entries());
+
+    // Validate required fields
+    if (!rawData.product || !rawData.name || !rawData.email || !rawData.phone) {
+      toast.error("Please fill in all required fields");
+      return;
     }
-  } catch (error) {
-    console.error("Error submitting order:", error);
-    toast.error("⚠️ Something went wrong. Please try again.");
+
+    // Map frontend field names to backend expected names
+    const data = {
+      name: rawData.name,
+      email: rawData.email,
+      phone: rawData.phone,
+      product: rawData.product, // This will be the selected product ID
+      selectedSize: rawData.size,
+      selectedColour: rawData.colour,
+      address: rawData.address,
+      comments: rawData.comments
+    };
+
+    try {
+      const res = await createOrder(data);
+
+      if (res.data.success) {
+        toast.success("✅ Order submitted successfully!");
+        e.target.reset(); // clear form
+        setSelectedProduct(null); // reset selected product
+      } else {
+        toast.error("❌ Failed: " + res.data.message);
+      }
+    } catch (error) {
+      console.error("Error submitting order:", error);
+      toast.error("⚠️ Something went wrong. Please try again.");
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen text-white">Loading products...</div>;
   }
-};
-
-
 
   return (
     <section className="min-h-screen flex items-stretch text-white">
@@ -95,17 +144,6 @@ const handleSubmit = async (e) => {
         className="lg:w-1/2 w-full flex items-start justify-center text-center md:px-16 px-0 z-0 pt-6"
         style={{ backgroundColor: "#161616" }}
       >
-        <div
-          className="absolute lg:hidden z-10 inset-0 bg-gray-500 bg-no-repeat bg-cover items-center"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1577495508048-b635879837f1?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=675&q=80)",
-          }}
-        >
-          <div className="absolute bg-black opacity-60 inset-0 z-0"></div>
-        </div>
-
-        {/* Form container */}
         <div className="w-full z-20">
           <h1 className="my-2">
             {/* Logo SVG */}
@@ -128,9 +166,7 @@ const handleSubmit = async (e) => {
           </p>
 
           {/* Form */}
-          <form 
-           onSubmit={handleSubmit}
-          className="sm:w-2/3 w-full px-4 lg:px-0 mx-auto">
+          <form onSubmit={handleSubmit} className="sm:w-2/3 w-full px-4 lg:px-0 mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Name */}
               <div className="pb-2 pt-2">
@@ -138,7 +174,8 @@ const handleSubmit = async (e) => {
                   type="text"
                   name="name"
                   id="name"
-                  placeholder="Name"
+                  placeholder="Name *"
+                  required
                   className="block w-full p-4 text-lg rounded-sm bg-black"
                 />
               </div>
@@ -148,7 +185,8 @@ const handleSubmit = async (e) => {
                   type="email"
                   name="email"
                   id="email"
-                  placeholder="Email"
+                  placeholder="Email *"
+                  required
                   className="block w-full p-4 text-lg rounded-sm bg-black"
                 />
               </div>
@@ -158,89 +196,58 @@ const handleSubmit = async (e) => {
                   type="tel"
                   name="phone"
                   id="phone"
-                  placeholder="Phone Number"
+                  placeholder="Phone Number *"
+                  required
                   className="block w-full p-4 text-lg rounded-sm bg-black"
                 />
               </div>
-              {/* Product Type */}
+              {/* Product Selection */}
               <div className="pb-2 pt-2">
                 <select
-                  name="productType"
-                  id="productType"
+                  name="product"
+                  id="product"
+                  required
+                  onChange={handleProductChange}
                   className="block w-full p-4 text-lg rounded-sm bg-black"
                 >
-                  <option value="">Select Product</option>
-                  <option>With Zip Hoodie</option>
-                  <option>Without Zip Hoodie</option>
-                  <option>Polo-shirt</option>
-                  <option>Jacket</option>
-                  <option>Bonded Fleece</option>
-                  <option>Varsity Jacket</option>
-                  <option>Crop-Top</option>
-                  <option>Round Neck T-shirt</option>
-                  <option>Windcheater</option>
-                  <option>Nashville Jacket</option>
-                  <option>Asger Hoodie</option>
-                  <option>Sweatshirt</option>
-                  <option>Austin Hoodie</option>
-                  <option>Austin Jacket</option>
+                  <option value="">Select Product *</option>
+                  {products.map((product) => (
+                    <option key={product._id} value={product._id}>
+                      {product.name} - {product.brand}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {/* Brand */}
-              <div className="pb-2 pt-2">
-                <select
-                  name="brand"
-                  id="brand"
-                  className="block w-full p-4 text-lg rounded-sm bg-black"
-                >
-                  <option value="">Select Brand</option>
-                  <option>Adidas</option>
-                  <option>Rare Rabbit</option>
-                  <option>UCB</option>
-                  <option>USPA</option>
-                  <option>M&S</option>
-                  <option>Stellar</option>
-                  <option>G4C</option>
-                  <option>Jack & Jones</option>
-                  <option>Scott</option>
-                  <option>Spinnex</option>
-                  <option>UG</option>
-                  <option>Xech</option>
-                  <option>Oblique</option>
-                </select>
-              </div>
-              {/* Size */}
+              {/* Size - only show if product is selected */}
               <div className="pb-2 pt-2">
                 <select
                   name="size"
                   id="size"
                   className="block w-full p-4 text-lg rounded-sm bg-black"
+                  disabled={!selectedProduct}
                 >
                   <option value="">Select Size</option>
-                  <option>XS</option>
-                  <option>Small</option>
-                  <option>Medium</option>
-                  <option>Large</option>
-                  <option>XL</option>
-                  <option>XXL</option>
-                  <option>3XL</option>
+                  {selectedProduct?.sizes?.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {/* Colour */}
+              {/* Colour - only show if product is selected */}
               <div className="pb-2 pt-2">
                 <select
                   name="colour"
                   id="colour"
                   className="block w-full p-4 text-lg rounded-sm bg-black"
+                  disabled={!selectedProduct}
                 >
                   <option value="">Select Colour</option>
-                  <option>Black</option>
-                  <option>Navy Blue</option>
-                  <option>Maroon</option>
-                  <option>White</option>
-                  <option>Grey Melange</option>
-                  <option>Dark Grey</option>
-                  <option>Petrol</option>
+                  {selectedProduct?.colours?.map((colour) => (
+                    <option key={colour} value={colour}>
+                      {colour}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -251,7 +258,8 @@ const handleSubmit = async (e) => {
                 type="text"
                 name="address"
                 id="address"
-                placeholder="Address"
+                placeholder="Address *"
+                required
                 className="block w-full p-4 text-lg rounded-sm bg-black"
               />
             </div>
@@ -268,7 +276,10 @@ const handleSubmit = async (e) => {
 
             {/* Submit */}
             <div className="px-4 pb-2 pt-4">
-              <button className="uppercase block w-full p-4 text-lg rounded-full bg-indigo-500 hover:bg-indigo-600 focus:outline-none">
+              <button 
+                type="submit"
+                className="uppercase block w-full p-4 text-lg rounded-full bg-indigo-500 hover:bg-indigo-600 focus:outline-none"
+              >
                 Submit Details
               </button>
             </div>
